@@ -7,3 +7,4 @@ CREATE TABLE tbl_passageiro (
     data DATE NOT NULL,
     observacao VARCHAR(200)
 );
+

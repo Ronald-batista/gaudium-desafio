@@ -33,7 +33,6 @@ class Passageiro extends CActiveRecord
 			array('nome, email, telefone, status, data', 'required'),
 			array('nome, email, telefone', 'length', 'max'=>128),
 			array('nome', 'ext.EWordValidator', 'min'=>2,),
-			//array('nome', 'have2Words', 'message'=>'O nome deve ter 2 palavras'),
 			array('email', 'email'), // validate email format
 			array('status', 'length', 'max'=>1),
 			array('observacao', 'length', 'max'=>200),
@@ -43,23 +42,6 @@ class Passageiro extends CActiveRecord
 			array('id, nome, email, telefone, status, data, observacao', 'safe', 'on'=>'search'),
 		);
 	}
-
-	/** NOT WORKING
-	 * Rule to verify number of words in a string
-	 * 
-	 * @param string $attribute
-	 * @return boolean
-	 */
-	// public function have2Words($attribute):bool
-	// {
-	// 	$words = explode(' ', $this->$attribute);
-	// 	if (count($words) < 2)
-	// 		return false;
-
-	// 	return true;
-	// }
-	
-
 
 	/**
 	 * @return array relational rules.
