@@ -21,7 +21,7 @@
 
 	<div class="row">
 		<?php echo $form->labelEx($model,'nome'); ?>
-		<?php echo $form->textField($model,'nome',array('size'=>60,'maxlength'=>128)); ?>
+		<?php echo $form->textField($model,'nome',array('size'=>60,'maxlength'=>128, 'minLength'=> 7)); ?>
 		<?php echo $form->error($model,'nome'); ?>
 	</div>
 
@@ -33,21 +33,31 @@
 
 	<div class="row">
 		<?php echo $form->labelEx($model,'telefone'); ?>
-		<?php echo $form->textField($model,'telefone',array('size'=>60,'maxlength'=>128)); ?>
+		<?php 
+		$this->widget('CMaskedTextField', array(
+			'model' => $model,
+			'attribute' => 'telefone',
+			'mask' => '+99-99-99999-9999',
+			'htmlOptions' => array('size' => 20, 'maxlength' => 13, 'placeholder'=>'+99-99-999999999',)
+		)); 
+		?>
 		<?php echo $form->error($model,'telefone'); ?>
 	</div>
 
 	<div class="row">
 		<?php echo $form->labelEx($model,'status'); ?>
-		<?php echo $form->textField($model,'status',array('size'=>1,'maxlength'=>1)); ?>
+		<?php echo $form->textField($model,'status',array('size'=>1,'maxlength'=>1) ); ?>
 		<?php echo $form->error($model,'status'); ?>
 	</div>
 
-	<div class="row">
-		<?php echo $form->labelEx($model,'data'); ?>
-		<?php echo $form->textField($model,'data'); ?>
+	 <div class="row">
+		<?php echo $form->labelEx($model,'data ultima modificação'); ?>
+		<?php 
+		date_default_timezone_set('America/Sao_Paulo');
+		echo $form->textField($model, 'data', array('value' => date('d/h/Y - g:i a'), 'readonly' => true));
+		?>
 		<?php echo $form->error($model,'data'); ?>
-	</div>
+	</div> 
 
 	<div class="row">
 		<?php echo $form->labelEx($model,'observacao'); ?>

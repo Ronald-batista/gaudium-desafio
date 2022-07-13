@@ -33,9 +33,12 @@ class Motorista extends CActiveRecord
 		return array(
 			array('nome, email, telefone, status, data, placa', 'required'),
 			array('nome, email, telefone', 'length', 'max'=>128),
+			array('nome', 'ext.EWordValidator', 'min'=>2,),
+			array('email', 'email'), // validate email format
 			array('status', 'length', 'max'=>1),
-			array('placa', 'length', 'max'=>8),
+			array('placa', 'length', 'max'=>9),
 			array('observacao', 'length', 'max'=>200),
+			array ('status', 'in', 'range' => array ('A', 'I'), 'allowEmpty' => false, 'message' => 'O status deve ser A para ativo ou I para inativo'), // validate status
 			// The following rule is used by search().
 			// @todo Please remove those attributes that should not be searched.
 			array('id, nome, email, telefone, status, data, placa, observacao', 'safe', 'on'=>'search'),
