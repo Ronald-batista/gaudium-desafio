@@ -159,7 +159,11 @@ class CorridaController extends Controller
 		if ($distancia < 0.1) {
 			return $this->ERROR('Distância muito curta');
 		}
-		return $distancia;
+		$distancia = $distancia * 1000;
+		$previsao_chegada = ($distancia / 200) + 3;
+		
+		return $previsao_chegada;
+
 	}
 
 
