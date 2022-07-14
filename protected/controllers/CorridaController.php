@@ -162,6 +162,9 @@ class CorridaController extends Controller
 		$distancia = $distancia * 1000;
 		$previsao_chegada = ($distancia / 200) + 3;
 		
+		if ($previsao_chegada > 480)
+			return $this->ERROR('Previsão de chegada muito longa. A corrida não pode durar mais de 8 horas');
+
 		return $previsao_chegada;
 
 	}
