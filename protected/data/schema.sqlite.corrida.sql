@@ -1,4 +1,5 @@
 CREATE TABLE tbl_corrida (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     passageiro_id INTEGER,
     motorista_id INTEGER,
     endereco_origem VARCHAR(256) NOT NULL,
@@ -11,3 +12,4 @@ CREATE TABLE tbl_corrida (
     FOREIGN KEY (passageiro_id) REFERENCES tbl_passageiro(id),
     FOREIGN KEY (motorista_id) REFERENCES tbl_motorista(id)
 );
+
