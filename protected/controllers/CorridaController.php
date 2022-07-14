@@ -40,13 +40,15 @@ class CorridaController extends Controller
 		date_default_timezone_set('America/Sao_Paulo');
 
 
-
-
 		//cadastra corrida
 		$corrida = new Corrida();
 		$corrida->passageiro_id = $this->validaPassageiro($data['passageiro']['id']); //valida passageiro
+		
+		if ($this->validaOrigemDestino($data['origem']['endereco'], $data['destino']['endereco'])){}; //valida origem e destino
+
 		$corrida->endereco_origem = $data['origem']['endereco'];
 		$corrida->endereco_destino = $data['destino']['endereco'];
+
 		$corrida->data_inicio = date('d/h/Y - g:i a');
 
 
@@ -66,12 +68,6 @@ class CorridaController extends Controller
 
 	public function validaPassageiro($passageiro)
 	{
-		//$passageiro = Corrida::model()->findByPk($passageiro); // TODO: Precisa de uma estrutura para saber que uma corrida esta em andamento
-		// $query = $Yii::app()->db->createCommand();
-		// $passageiro = $query->select('*')->from('corrida')->where('passageiro_id = :passageiro_id', array(':passageiro_id' => $passageiro));
-		//$passageiro = $passageiro->queryRow();
-		//$passageiro = $query->select('*')->from('tbl_corrida');
-		//$passageiro = $passageiro->where('status = :status')->addParams([':status' => 'Em andamento']);
 		$validation = Yii::app()->db->createCommand()
 			->select('*')
 			->from('tbl_corrida')
@@ -81,6 +77,13 @@ class CorridaController extends Controller
 		if ($validation)
 			return $this->erroCorrida('Passageiro já está em uma corrida');
 		return $passageiro;
+	}
+
+	public function validaOrigemDestino($origem, $destino)
+	{
+		if ($origem == $destino)
+			return $this->erroCorrida('Origem e destino não podem ser iguais');
+		return true;
 	}
 
 	public function erroCorrida($msg)
