@@ -24,6 +24,10 @@ class CorridaController extends Controller
 		Yii::app()->end();
 	}
 
+	/**
+	 * Testar retorno de dados em JSON.
+	 */
+	
 	public function actionTeste()
 	{
 		// $method = $_SERVER['REQUEST_METHOD'];
@@ -33,13 +37,16 @@ class CorridaController extends Controller
 		return $this->renderJSON(array('data' => $data));
 	}
 
+	/**
+	 * Criar uma nova corrida
+	 */
 	public function actionCriaCorrida()
 	{
 		$data = file_get_contents('php://input');
 		$data = CJSON::decode($data);
 		date_default_timezone_set('America/Sao_Paulo');
 
-
+		
 		//cadastra corrida
 		$corrida = new Corrida();
 		$corrida->passageiro_id = $this->validaPassageiro($data['passageiro']['id']); //valida passageiro
@@ -66,28 +73,52 @@ class CorridaController extends Controller
 		);
 	}
 
-	public function validaPassageiro($passageiro)
+
+	/**
+	 * Valida se o passageiro existe, está ativo e não possui outra corrida em andamento.
+	 * @param int $idPassageiro ID do passageiro
+	 * @return int ID do passageiro
+	 */
+	public function validaPassageiro($idPassageiro)
 	{
+		// verifica se passageiro existe
+		$passageiro = Passageiro::model()->findByPk($idPassageiro);
+		if ($passageiro === null) {
+			return $this->ERROR('Passageiro não encontrado');
+		}
+
+		// verifica se passageiro está ativo
+		$statusPassageiro = Yii::app()->db->createCommand()
+		->select('*')
+		->from('tbl_passageiro')
+		->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'A'))
+		->queryRow();
+		if (!$statusPassageiro) {
+			return $this->ERROR('Passageiro não está ativo');
+		}
+
+		// verifica se passageiro possui corrida em andamento
 		$validation = Yii::app()->db->createCommand()
 			->select('*')
 			->from('tbl_corrida')
-			->where('id=:id AND status=:status', array(':id' => $passageiro, ':status' => 'Em andamento'))
+			->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'Em andamento'))
 			->queryRow();
 			
 		if ($validation)
-			return $this->erroCorrida('Passageiro já está em uma corrida');
-		return $passageiro;
+			return $this->ERROR('Passageiro já está em uma corrida');
+		return $idPassageiro;
 	}
 
 	public function validaOrigemDestino($origem, $destino)
 	{
 		if ($origem == $destino)
-			return $this->erroCorrida('Origem e destino não podem ser iguais');
+			return $this->ERROR('Origem e destino não podem ser iguais');
 		return true;
 	}
 
-	public function erroCorrida($msg)
+	public function ERROR($msg)
 	{
+		
 		return $this->renderJSON(array(
 			'sucesso' => false,
 			'erro' => $msg,
