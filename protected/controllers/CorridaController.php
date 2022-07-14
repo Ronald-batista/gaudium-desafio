@@ -59,8 +59,12 @@ class CorridaController extends Controller
 		$corrida->endereco_destino = $data['destino']['endereco'];
 		
 		$corrida->data_inicio = date('d/h/Y - g:i a');
-		$distancia = $this->calcPrevisaoChegada($data['origem']['lat'], $data['origem']['lng'], $data['destino']['lat'], $data['destino']['lng']); //calcula distancia
+		$distancia = $this->calcDistancia($data['origem']['lat'], $data['origem']['lng'], $data['destino']['lat'], $data['destino']['lng']);
+		$previsao_chegada = $this->calcPrevisaoChegada($distancia); //calcula a previsao de chegada
+		$corrida->previsao_chegada = $previsao_chegada;
 
+		$tarifa = $this->calcTarifa($distancia, $previsao_chegada); //calcula a tarifa
+		$corrida->tarifa = $tarifa;
 
 
 		$response = array(
@@ -114,6 +118,13 @@ class CorridaController extends Controller
 		return $idPassageiro;
 	}
 
+
+	/**
+	 * Valida se o origem e o destino são válidos.
+	 * @param string $origem Endereço de origem
+	 * @param string $destino Endereço de destino
+	 * @return boolean
+	 */
 	public function validaOrigemDestino($origem, $destino)
 	{
 		if ($origem == $destino)
@@ -121,6 +132,9 @@ class CorridaController extends Controller
 		return true;
 	}
 
+	/**
+	 * Mensagem de erro
+	 */
 	public function ERROR($msg)
 	{
 		
@@ -152,10 +166,10 @@ class CorridaController extends Controller
 
 	/**
 	 * Calcula previsao de chegada da corrida
+	 * @param float $distancia Distancia em km
 	 */
-	function calcPrevisaoChegada($latitude_origem, $longitude_origem, $latitude_destino, $longitude_destino)
+	function calcPrevisaoChegada($distancia)
 	{
-		$distancia = $this->calcDistancia($latitude_origem, $longitude_origem, $latitude_destino, $longitude_destino);
 		if ($distancia < 0.1) {
 			return $this->ERROR('Distância muito curta');
 		}
@@ -165,11 +179,21 @@ class CorridaController extends Controller
 		if ($previsao_chegada > 480)
 			return $this->ERROR('Previsão de chegada muito longa. A corrida não pode durar mais de 8 horas');
 
-		return $previsao_chegada;
+		return round($previsao_chegada,0);
 
 	}
 
 
+	/**
+	 * Calcula tarifa da corrida
+	 * @param float $distancia Distancia da corrida
+	 * @param int $previsao_chegada Previsao de chegada da corrida
+	 */
+	function calcTarifa($distancia, $previsao_chegada)
+	{
+		$tarifa = $distancia * 2 + $previsao_chegada * 0.5 + 5;
+		return $tarifa;
+	}
 	// Uncomment the following methods and override them if needed
 	/*
 	public function filters()
