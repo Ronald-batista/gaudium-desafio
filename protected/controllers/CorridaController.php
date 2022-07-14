@@ -27,7 +27,7 @@ class CorridaController extends Controller
 	/**
 	 * Testar retorno de dados em JSON.
 	 */
-	
+
 	public function actionTeste()
 	{
 		// $method = $_SERVER['REQUEST_METHOD'];
@@ -51,17 +51,22 @@ class CorridaController extends Controller
 		$corrida = new Corrida();
 		$corrida->passageiro_id = $this->validaPassageiro($data['passageiro']['id']); //valida passageiro
 		
-		if ($this->validaOrigemDestino($data['origem']['endereco'], $data['destino']['endereco'])){}; //valida origem e destino
+		$origem = $data['origem']['endereco'];
+		$destino = $data['destino']['endereco'];
 
+		if ($this->validaOrigemDestino($origem, $destino)); //valida origem e destino
 		$corrida->endereco_origem = $data['origem']['endereco'];
 		$corrida->endereco_destino = $data['destino']['endereco'];
-
+		
 		$corrida->data_inicio = date('d/h/Y - g:i a');
+		$distancia = $this->calcPrevisaoChegada($data['origem']['lat'], $data['origem']['lng'], $data['destino']['lat'], $data['destino']['lng']); //calcula distancia
+
 
 
 		$response = array(
 			'id' => $corrida->id,
 			'corrida' => $corrida,
+			'distancia' => $distancia,
 		);
 		// $corrida->save();
 		return $this->renderJSON(
@@ -103,9 +108,9 @@ class CorridaController extends Controller
 			->from('tbl_corrida')
 			->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'Em andamento'))
 			->queryRow();
-			
 		if ($validation)
 			return $this->ERROR('Passageiro já está em uma corrida');
+
 		return $idPassageiro;
 	}
 
@@ -124,6 +129,39 @@ class CorridaController extends Controller
 			'erro' => $msg,
 		));
 	}
+
+	/**
+	 * Calcula entre dois pontos de latitude e longitude.
+	 */
+	function calcDistancia( $lat1 = '', $lon1 = '' , $lat2 = '' , $lon2 = '' ) 
+	{
+
+		if( $lat1 && $lon1 && $lat2 && $lon2 ) {
+			$distancia = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad( $lon1 - $lon2 ));
+			$distancia = acos($distancia);
+			$distancia = rad2deg($distancia);
+			$kilometro = $distancia* 60 * 1.1515 * 1.609344;
+			return round($kilometro,2) ;
+
+		} 
+
+		return $this->ERROR('Erro ao calcular distância');
+	
+	
+	}
+
+	/**
+	 * Calcula previsao de chegada da corrida
+	 */
+	function calcPrevisaoChegada($latitude_origem, $longitude_origem, $latitude_destino, $longitude_destino)
+	{
+		$distancia = $this->calcDistancia($latitude_origem, $longitude_origem, $latitude_destino, $longitude_destino);
+		if ($distancia < 0.1) {
+			return $this->ERROR('Distância muito curta');
+		}
+		return $distancia;
+	}
+
 
 	// Uncomment the following methods and override them if needed
 	/*
