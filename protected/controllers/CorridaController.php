@@ -49,7 +49,7 @@ class CorridaController extends Controller
 		$data = CJSON::decode($data);
 		date_default_timezone_set('America/Sao_Paulo');
 
-		//cadastra corrida
+		//cria corrida
 		$corrida = new Corrida();
 		$corrida->passageiro_id = $this->validaPassageiro($data['passageiro']['id']); //valida passageiro
 		$corrida->id = Corrida::model()->count() + 1;
@@ -249,7 +249,7 @@ class CorridaController extends Controller
 				return $idMotorista;
 			}
 		}
-		return 0;
+		return $this->ErrorBadRequest('Nenhum motorista disponível');
 		
 	}
 
