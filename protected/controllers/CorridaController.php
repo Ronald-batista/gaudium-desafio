@@ -37,6 +37,7 @@ class CorridaController extends Controller
 		return $this->renderJSON(array('data' => $data), 200);
 	}
 
+
 	/**
 	 * Criar uma nova corrida
 	 */
@@ -96,18 +97,19 @@ class CorridaController extends Controller
 
 		);
 
-		if ($corrida->save()) {
-			return $this->renderJSON(
-				array(
-					'sucesso' => true,
-					'corrida' => $responseCorrida,
-					'motorista' => $responseMotorista
-				),
-				200
-			);
+		if (!$corrida->save()) { // identifica erro ao salvar corrida
+			return $this->ErrorBadRequest('Erro ao criar corrida. Não foi possível salvar no banco de dados.');
 		}
 
-		return $this->ErrorBadRequest('Erro ao criar corrida. Não foi possível salvar no banco de dados.');
+		return $this->renderJSON(
+			array(
+				'sucesso' => true,
+				'corrida' => $responseCorrida,
+				'motorista' => $responseMotorista
+			),
+			200
+		);
+		
 	}
 
 
@@ -243,12 +245,11 @@ class CorridaController extends Controller
 
 		for ($idMotorista = 1; $idMotorista <= $quantidadeDeMotoristas; $idMotorista++){
 		
-			if ($this->verificaSeMotoristaPossuiCorridaEmAndamento($idMotorista) == 0){ // Verifica se o motorista possui corridas em andamento
-				//CASO NAO POSSUA CORRIDAS EM ANDAMENTO 
+			if ($this->verificaSeMotoristaPossuiCorridaEmAndamento($idMotorista) == 0){ // Verifica se o motorista possui corridas em andamento 
 				return $idMotorista;
 			}
 		}
-		return $this->ErrorBadRequest('Não existe motorista disponível');
+		return 0;
 		
 	}
 
@@ -288,6 +289,20 @@ class CorridaController extends Controller
 		fclose($file);
 		return $this->ErrorBadRequest('Token inválido');
 	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	// Uncomment the following methods and override them if needed
 	/*
 	public function filters()
