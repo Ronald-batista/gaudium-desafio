@@ -1,0 +1,2 @@
+#Comentei a linha abaixo porque o token não deveria ser enviado, mas para facilitar os testes vou deixar ele ir para o repositorio mesmo.
+#protected/config/secret.txt

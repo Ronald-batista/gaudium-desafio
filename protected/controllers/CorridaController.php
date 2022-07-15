@@ -11,26 +11,9 @@ class CorridaController extends Controller
 	 * Return data to browser as JSON and end application.
 	 * @param array $data
 	 */
-	protected function renderJSON($data)
+	protected function renderJSON($data, $code_status)
 	{
-		header('Content-type: application/json');
-		echo CJSON::encode($data);
-
-		foreach (Yii::app()->log->routes as $route) {
-			if ($route instanceof CWebLogRoute) {
-				$route->enabled = false; // disable any weblogroutes
-			}
-		}
-		Yii::app()->end();
-	}
-
-	/**
-	 * Return data to browser as JSON with code 400 and end application.
-	 * @param array $data
-	 */
-	protected function renderErrorJSON($data)
-	{
-		header('Content-type: application/json', true, 400);
+		header('Content-type: application/json', true, $code_status);
 		echo CJSON::encode($data);
 
 		foreach (Yii::app()->log->routes as $route) {
@@ -51,7 +34,7 @@ class CorridaController extends Controller
 
 		$data = file_get_contents('php://input');
 		$data = CJSON::decode($data);
-		return $this->renderJSON(array('data' => $data));
+		return $this->renderJSON(array('data' => $data), 200);
 	}
 
 	/**
@@ -59,45 +42,72 @@ class CorridaController extends Controller
 	 */
 	public function actionCriaCorrida()
 	{
-		$token = getallheaders()['Postman-Token'];
+		$token = getallheaders()['api-key'];
+		$this->validaToken($token);
 		$data = file_get_contents('php://input');
 		$data = CJSON::decode($data);
 		date_default_timezone_set('America/Sao_Paulo');
 
-
 		//cadastra corrida
 		$corrida = new Corrida();
 		$corrida->passageiro_id = $this->validaPassageiro($data['passageiro']['id']); //valida passageiro
+		$corrida->id = Corrida::model()->count() + 1;
 
 		$origem = $data['origem']['endereco'];
 		$destino = $data['destino']['endereco'];
-
 		if ($this->validaOrigemDestino($origem, $destino)); //valida origem e destino
-		$corrida->endereco_origem = $data['origem']['endereco'];
-		$corrida->endereco_destino = $data['destino']['endereco'];
+		$corrida->endereco_origem = $origem;
+		$corrida->endereco_destino = $destino;
 
-		$corrida->data_inicio = date('d/h/Y - g:i a');
+		$corrida->data_inicio = date('d-m-Y H:i', strtotime("now")); //data de solicitacao da corrida
+
+		$idMotorista = $this->atribuiMotorista($corrida->id); //atribui motorista
+		if ($idMotorista != 0) {
+			$corrida->motorista_id = $idMotorista;
+			$motorista = Motorista::model()->findByPk($corrida->motorista_id); // dados do motorista escolhido
+			$quantidadeCorridaDoMotorista = Corrida::model()->count('motorista_id = :motorista_id', array(':motorista_id' => $corrida->motorista_id)); //quantidade de corridas do motorista
+			$corrida->status = 'Em andamento';
+		} else {
+			$corrida->motorista_id = null;
+			$motorista = null;
+			$quantidadeCorridaDoMotorista = null;
+			$corrida->status = 'Não Atendida';
+		}
+
 		$distancia = $this->calcDistancia($data['origem']['lat'], $data['origem']['lng'], $data['destino']['lat'], $data['destino']['lng']);
 		$previsao_chegada = $this->calcPrevisaoChegada($distancia); //calcula a previsao de chegada
+		$previsao_chegada = $previsao_chegada[0]; // data da previsao de chegada
+		$tempo_corrida = $previsao_chegada[1]; // tempo em minutos da corrida
 		$corrida->previsao_chegada = $previsao_chegada;
+		$corrida->data_finalizacao = $previsao_chegada; // este campo é atualizado novamente quando a corrida for finalizada
 
-		$tarifa = $this->calcTarifa($distancia, $previsao_chegada); //calcula a tarifa
+		$tarifa = $this->calcTarifa($distancia, $tempo_corrida); //calcula a tarifa
 		$corrida->tarifa = $tarifa;
 
-
-		$response = array(
+		$responseCorrida = array(
 			'id' => $corrida->id,
-			'corrida' => $corrida,
-			'Api/Postman token' => $token,
+			'previsao_chegada_destino' => $previsao_chegada,
 		);
-		// $corrida->save();
-		return $this->renderJSON(
-			array(
-				'sucesso' => true,
-				'corrida' => $response,
-				'motorista' => 'Preencher com dados do motorista'
-			)
+
+		$responseMotorista = array(
+			'nome' => $motorista != null ? $motorista->nome : null,
+			'placa' => $motorista != null ? $motorista->placa : null,
+			'quantidade_corridas' => $motorista != null ? $quantidadeCorridaDoMotorista : null,
+
 		);
+
+		if ($corrida->save()) {
+			return $this->renderJSON(
+				array(
+					'sucesso' => true,
+					'corrida' => $responseCorrida,
+					'motorista' => $responseMotorista
+				),
+				200
+			);
+		}
+
+		return $this->ErrorBadRequest('Erro ao criar corrida. Não foi possível salvar no banco de dados.');
 	}
 
 
@@ -128,7 +138,7 @@ class CorridaController extends Controller
 		$validation = Yii::app()->db->createCommand()
 			->select('*')
 			->from('tbl_corrida')
-			->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'Em andamento'))
+			->where('passageiro_id=:passageiro_id AND status=:status', array(':passageiro_id' => $idPassageiro, ':status' => 'Em andamento'))
 			->queryRow();
 		if ($validation)
 			return $this->ErrorBadRequest('Passageiro já está em uma corrida');
@@ -155,10 +165,10 @@ class CorridaController extends Controller
 	 */
 	public function ErrorBadRequest($msg)
 	{
-		return $this->renderErrorJSON(array(
+		return $this->renderJSON(array(
 			'sucesso' => false,
 			'erro' => $msg,
-		));
+		), 400);
 	}
 
 	/**
@@ -184,6 +194,7 @@ class CorridaController extends Controller
 	 */
 	function calcPrevisaoChegada($distancia)
 	{
+		date_default_timezone_set('America/Sao_Paulo');
 		if ($distancia < 0.1) {
 			return $this->ErrorBadRequest('Distância muito curta');
 		}
@@ -193,7 +204,17 @@ class CorridaController extends Controller
 		if ($previsao_chegada > 480)
 			return $this->ErrorBadRequest('Previsão de chegada muito longa. A corrida não pode durar mais de 8 horas');
 
-		return round($previsao_chegada, 0);
+		$tempo = round($previsao_chegada, 0);
+		$previsao_chegada = strtotime("+ $tempo minutes");
+		$previsao_chegada = date('d-m-Y H:i', $previsao_chegada);
+
+		// return $this->renderJSON(array(
+		// 	'sucesso' => true,
+		// 	'previsao_chegada' => $previsao_chegada,
+		// ), 200);
+		return array($previsao_chegada, $tempo);
+
+		//	return ;
 	}
 
 
@@ -208,26 +229,65 @@ class CorridaController extends Controller
 		return $tarifa;
 	}
 
+	/**
+	 * Atribui motorista a corrida 
+	 */
+	public function atribuiMotorista($idCorrida)
+	{
+		// pega a quantidade de motoristas
+		$quantidadeDeMotoristas =  Yii::app()->db->createCommand()
+			->select('COUNT(*)')
+			->from('tbl_motorista')
+			->where('status=:status', array(':status' => 'A'))
+			->queryRow();
+
+		for ($idMotorista = 1; $idMotorista <= $quantidadeDeMotoristas; $idMotorista++){
+		
+			if ($this->verificaSeMotoristaPossuiCorridaEmAndamento($idMotorista) == 0){ // Verifica se o motorista possui corridas em andamento
+				//CASO NAO POSSUA CORRIDAS EM ANDAMENTO 
+				return $idMotorista;
+			}
+		}
+		return $this->ErrorBadRequest('Não existe motorista disponível');
+		
+	}
+
+	/**
+	 * Verifica se o motorista possui alguma corrida com status "Em andamento"
+	 * @param $idMotorista ID do motorista
+	 */
+	public function verificaSeMotoristaPossuiCorridaEmAndamento($idMotorista){
+
+		// verifico se esse motorista possui corridas em andamento
+		$query = Yii::app()->db->createCommand()
+			->select('*')
+			->from('tbl_corrida')
+			->where('motorista_id=:id AND status=:status', array( ':id' => $idMotorista,':status' => 'Em andamento'))
+			->queryRow();
+
+		return $query;
+
+		
+	}
 
 	/**
 	 * Valida o token de API
 	 * @param string $token Token de autorização
 	 */
-	// public function validaToken($token):bool
-	// {
-		//$stop = true;
-		//$file = fopen("protected/config/secret.txt", 'arb');
-		//file_put_contents("protected/config/secret.txt", $token,  FILE_APPEND | LOCK_EX);
-		// while (false !== ($line = fgets($file))) {
-		// 	if (trim($line) === $token) {
-		// 		$stop = true;
-		// 		fclose($file);
-		// 		return $stop; 
-		// 	}
-		// }
-		//fclose($file);
-		//return $stop;
-	//}
+	public function validaToken($token)
+	{
+		$stop = true;
+		$file = fopen("protected/config/secret.txt", 'rb');
+		while (false !== ($line = fgets($file))) {
+			if (trim($line) === $token) {
+				$stop = true;
+				fclose($file);
+				return;
+			}
+		}
+		fclose($file);
+		return $this->ErrorBadRequest('Token inválido');
+	}
 	// Uncomment the following methods and override them if needed
 	/*
 	public function filters()
