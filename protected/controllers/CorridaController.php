@@ -25,6 +25,23 @@ class CorridaController extends Controller
 	}
 
 	/**
+	 * Return data to browser as JSON with code 400 and end application.
+	 * @param array $data
+	 */
+	protected function renderErrorJSON($data)
+	{
+		header('Content-type: application/json', true, 400);
+		echo CJSON::encode($data);
+
+		foreach (Yii::app()->log->routes as $route) {
+			if ($route instanceof CWebLogRoute) {
+				$route->enabled = false; // disable any weblogroutes
+			}
+		}
+		Yii::app()->end();
+	}
+
+	/**
 	 * Testar retorno de dados em JSON.
 	 */
 
@@ -42,22 +59,23 @@ class CorridaController extends Controller
 	 */
 	public function actionCriaCorrida()
 	{
+		$token = getallheaders()['Postman-Token'];
 		$data = file_get_contents('php://input');
 		$data = CJSON::decode($data);
 		date_default_timezone_set('America/Sao_Paulo');
 
-		
+
 		//cadastra corrida
 		$corrida = new Corrida();
 		$corrida->passageiro_id = $this->validaPassageiro($data['passageiro']['id']); //valida passageiro
-		
+
 		$origem = $data['origem']['endereco'];
 		$destino = $data['destino']['endereco'];
 
 		if ($this->validaOrigemDestino($origem, $destino)); //valida origem e destino
 		$corrida->endereco_origem = $data['origem']['endereco'];
 		$corrida->endereco_destino = $data['destino']['endereco'];
-		
+
 		$corrida->data_inicio = date('d/h/Y - g:i a');
 		$distancia = $this->calcDistancia($data['origem']['lat'], $data['origem']['lng'], $data['destino']['lat'], $data['destino']['lng']);
 		$previsao_chegada = $this->calcPrevisaoChegada($distancia); //calcula a previsao de chegada
@@ -70,7 +88,7 @@ class CorridaController extends Controller
 		$response = array(
 			'id' => $corrida->id,
 			'corrida' => $corrida,
-			'distancia' => $distancia,
+			'Api/Postman token' => $token,
 		);
 		// $corrida->save();
 		return $this->renderJSON(
@@ -93,17 +111,17 @@ class CorridaController extends Controller
 		// verifica se passageiro existe
 		$passageiro = Passageiro::model()->findByPk($idPassageiro);
 		if ($passageiro === null) {
-			return $this->ERROR('Passageiro não encontrado');
+			return $this->ErrorBadRequest('Passageiro não encontrado');
 		}
 
 		// verifica se passageiro está ativo
 		$statusPassageiro = Yii::app()->db->createCommand()
-		->select('*')
-		->from('tbl_passageiro')
-		->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'A'))
-		->queryRow();
+			->select('*')
+			->from('tbl_passageiro')
+			->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'A'))
+			->queryRow();
 		if (!$statusPassageiro) {
-			return $this->ERROR('Passageiro não está ativo');
+			return $this->ErrorBadRequest('Passageiro não está ativo');
 		}
 
 		// verifica se passageiro possui corrida em andamento
@@ -113,7 +131,7 @@ class CorridaController extends Controller
 			->where('id=:id AND status=:status', array(':id' => $idPassageiro, ':status' => 'Em andamento'))
 			->queryRow();
 		if ($validation)
-			return $this->ERROR('Passageiro já está em uma corrida');
+			return $this->ErrorBadRequest('Passageiro já está em uma corrida');
 
 		return $idPassageiro;
 	}
@@ -128,17 +146,16 @@ class CorridaController extends Controller
 	public function validaOrigemDestino($origem, $destino)
 	{
 		if ($origem == $destino)
-			return $this->ERROR('Origem e destino não podem ser iguais');
+			return $this->ErrorBadRequest('Origem e destino não podem ser iguais');
 		return true;
 	}
 
 	/**
 	 * Mensagem de erro
 	 */
-	public function ERROR($msg)
+	public function ErrorBadRequest($msg)
 	{
-		
-		return $this->renderJSON(array(
+		return $this->renderErrorJSON(array(
 			'sucesso' => false,
 			'erro' => $msg,
 		));
@@ -147,21 +164,18 @@ class CorridaController extends Controller
 	/**
 	 * Calcula entre dois pontos de latitude e longitude.
 	 */
-	function calcDistancia( $lat1 = '', $lon1 = '' , $lat2 = '' , $lon2 = '' ) 
+	function calcDistancia($lat1 = '', $lon1 = '', $lat2 = '', $lon2 = '')
 	{
 
-		if( $lat1 && $lon1 && $lat2 && $lon2 ) {
-			$distancia = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad( $lon1 - $lon2 ));
+		if ($lat1 && $lon1 && $lat2 && $lon2) {
+			$distancia = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($lon1 - $lon2));
 			$distancia = acos($distancia);
 			$distancia = rad2deg($distancia);
-			$kilometro = $distancia* 60 * 1.1515 * 1.609344;
-			return round($kilometro,2) ;
+			$kilometro = $distancia * 60 * 1.1515 * 1.609344;
+			return round($kilometro, 2);
+		}
 
-		} 
-
-		return $this->ERROR('Erro ao calcular distância');
-	
-	
+		return $this->ErrorBadRequest('Erro ao calcular distância');
 	}
 
 	/**
@@ -171,16 +185,15 @@ class CorridaController extends Controller
 	function calcPrevisaoChegada($distancia)
 	{
 		if ($distancia < 0.1) {
-			return $this->ERROR('Distância muito curta');
+			return $this->ErrorBadRequest('Distância muito curta');
 		}
 		$distancia = $distancia * 1000;
 		$previsao_chegada = ($distancia / 200) + 3;
-		
+
 		if ($previsao_chegada > 480)
-			return $this->ERROR('Previsão de chegada muito longa. A corrida não pode durar mais de 8 horas');
+			return $this->ErrorBadRequest('Previsão de chegada muito longa. A corrida não pode durar mais de 8 horas');
 
-		return round($previsao_chegada,0);
-
+		return round($previsao_chegada, 0);
 	}
 
 
@@ -194,6 +207,27 @@ class CorridaController extends Controller
 		$tarifa = $distancia * 2 + $previsao_chegada * 0.5 + 5;
 		return $tarifa;
 	}
+
+
+	/**
+	 * Valida o token de API
+	 * @param string $token Token de autorização
+	 */
+	// public function validaToken($token):bool
+	// {
+		//$stop = true;
+		//$file = fopen("protected/config/secret.txt", 'arb');
+		//file_put_contents("protected/config/secret.txt", $token,  FILE_APPEND | LOCK_EX);
+		// while (false !== ($line = fgets($file))) {
+		// 	if (trim($line) === $token) {
+		// 		$stop = true;
+		// 		fclose($file);
+		// 		return $stop; 
+		// 	}
+		// }
+		//fclose($file);
+		//return $stop;
+	//}
 	// Uncomment the following methods and override them if needed
 	/*
 	public function filters()
