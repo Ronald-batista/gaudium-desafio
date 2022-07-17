@@ -62,19 +62,6 @@ class CorridaController extends Controller
 
 		$corrida->data_inicio = date('d-m-Y H:i', strtotime("now")); //data de solicitacao da corrida
 
-		$idMotorista = $this->atribuiMotorista($corrida->id); //atribui motorista
-		if ($idMotorista != 0) {
-			$corrida->motorista_id = $idMotorista;
-			$motorista = Motorista::model()->findByPk($corrida->motorista_id); // dados do motorista escolhido
-			$quantidadeCorridaDoMotorista = Corrida::model()->count('motorista_id = :motorista_id', array(':motorista_id' => $corrida->motorista_id)); //quantidade de corridas do motorista
-			$corrida->status = 'Em andamento';
-		} else {
-			$corrida->motorista_id = null;
-			$motorista = null;
-			$quantidadeCorridaDoMotorista = null;
-			$corrida->status = 'Não Atendida';
-		}
-
 		$distancia = $this->calcDistancia($data['origem']['lat'], $data['origem']['lng'], $data['destino']['lat'], $data['destino']['lng']);
 		$previsao_chegada = $this->calcPrevisaoChegada($distancia); //calcula a previsao de chegada
 		$previsao_chegada = $previsao_chegada[0]; // data da previsao de chegada
@@ -84,6 +71,24 @@ class CorridaController extends Controller
 
 		$tarifa = $this->calcTarifa($distancia, $tempo_corrida); //calcula a tarifa
 		$corrida->tarifa = $tarifa;
+		
+		$idMotorista = $this->atribuiMotorista(); 
+		
+		//atribui motorista
+		if ($idMotorista != 0) {
+			$corrida->motorista_id = $idMotorista;
+			$motorista = Motorista::model()->findByPk($corrida->motorista_id); // dados do motorista escolhido
+			$quantidadeCorridaDoMotorista = Corrida::model()->count('motorista_id = :motorista_id', array(':motorista_id' => $corrida->motorista_id)); //quantidade de corridas do motorista
+			$corrida->status = 'Em andamento';
+			
+		} else {
+			$corrida->motorista_id = null;
+			$motorista = null;
+			$quantidadeCorridaDoMotorista = null;
+			$corrida->status = 'Não Atendida';
+			$corrida->save();
+			return $this->renderJSON(array('data' => 'Não há motoristas disponíveis para essa corrida'), 400);
+		}
 
 		$responseCorrida = array(
 			'id' => $corrida->id,
@@ -105,11 +110,12 @@ class CorridaController extends Controller
 			array(
 				'sucesso' => true,
 				'corrida' => $responseCorrida,
-				'motorista' => $responseMotorista
+				'motorista' => $responseMotorista,
+				'corrida_completo' => $corrida,
+				'motorista_completo' => $motorista,
 			),
 			200
 		);
-		
 	}
 
 
@@ -142,6 +148,7 @@ class CorridaController extends Controller
 			->from('tbl_corrida')
 			->where('passageiro_id=:passageiro_id AND status=:status', array(':passageiro_id' => $idPassageiro, ':status' => 'Em andamento'))
 			->queryRow();
+
 		if ($validation)
 			return $this->ErrorBadRequest('Passageiro já está em uma corrida');
 
@@ -233,44 +240,63 @@ class CorridaController extends Controller
 
 	/**
 	 * Atribui motorista a corrida 
+	 * Procura na tabela motorista e na tabela corrida, se existe motorista 
 	 */
-	public function atribuiMotorista($idCorrida)
+	public function atribuiMotorista()
 	{
-		// pega a quantidade de motoristas
-		$quantidadeDeMotoristas =  Yii::app()->db->createCommand()
-			->select('COUNT(*)')
+		// Busca por motorista que nao realizam corrida ainda
+		// $idMotorista = Yii::app()->db->createCommand()
+		// 	->selectDistinct('*')
+		// 	->from('tbl_motorista')
+		// 	->leftjoin('tbl_corrida', 'tbl_motorista.id = tbl_corrida.motorista_id')
+		// 	->queryAll();
+			
+		// for ($i = 0; $i < count($idMotorista); $i++) {
+		// 	if ($idMotorista[$i]['motorista_id'] == null) {
+		// 		$nome_motorista = $idMotorista[$i]['nome'];
+		// 		$placa_motorista = $idMotorista[$i]['placa'];
+				
+		// 		$idMotorista = Yii::app()->db->createCommand()
+		// 			->selectDistinct('id')
+		// 			->from('tbl_motorista')
+		// 			->where('nome = :nome AND placa=:placa', array(':nome' => $nome_motorista, ':placa' => $placa_motorista))
+		// 			->queryRow();
+				
+		// 		return $idMotorista['id'];
+		// 	}
+		// }
+		
+		// Busca por motoristas que ja realizam corrida, mas nao possuem corrida em andamento
+		$MotoristaOcupados = Yii::app()->db->createCommand()
+			->selectDistinct('motorista_id')
 			->from('tbl_motorista')
-			->where('status=:status', array(':status' => 'A'))
-			->queryRow();
+			->join('tbl_corrida', 'tbl_motorista.status = "A" ')
+			->where('tbl_corrida.status = :status', array(':status' => 'Em andamento'))
+			->queryAll();
 
-		for ($idMotorista = 1; $idMotorista <= $quantidadeDeMotoristas; $idMotorista++){
-		
-			if ($this->verificaSeMotoristaPossuiCorridaEmAndamento($idMotorista) == 0){ // Verifica se o motorista possui corridas em andamento 
-				return $idMotorista;
+			for ($i = 0; $i < count($MotoristaOcupados); $i++) {
+				$arrayMotoristaOcupados[] = $MotoristaOcupados[$i]['motorista_id'];
 			}
-		}
-		return $this->ErrorBadRequest('Nenhum motorista disponível');
-		
+
+			// Pegar todos motorista que possuem status ativo
+			$motoristasStatusAtivo = Yii::app()->db->createCommand()
+			->select('id')
+			->from('tbl_motorista')
+			->where('status = :status', array(':status' => 'A'))
+			->queryAll();
+			for ($i = 0; $i < count($motoristasStatusAtivo); $i++) {
+				$arrayMotoristasStatusAtivo[] = $motoristasStatusAtivo[$i]['id'];
+			}
+	
+			//Quantidade de motoristas
+			$qtdMotoristas = Motorista::model()->count();
+			$rangeMotorista = range(1, $qtdMotoristas);
+			
+			$removidoEmAndamento = array_diff($arrayMotoristaOcupados, $rangeMotorista);
+			$motoristasDisponiveis = array_intersect($arrayMotoristasStatusAtivo , $removidoEmAndamento);
+
+			return $motoristasDisponiveis == null ? null : $motoristasDisponiveis[0];
 	}
-
-	/**
-	 * Verifica se o motorista possui alguma corrida com status "Em andamento"
-	 * @param $idMotorista ID do motorista
-	 */
-	public function verificaSeMotoristaPossuiCorridaEmAndamento($idMotorista){
-
-		// verifico se esse motorista possui corridas em andamento
-		$query = Yii::app()->db->createCommand()
-			->select('*')
-			->from('tbl_corrida')
-			->where('motorista_id=:id AND status=:status', array( ':id' => $idMotorista,':status' => 'Em andamento'))
-			->queryRow();
-
-		return $query;
-
-		
-	}
-
 	/**
 	 * Valida o token de API
 	 * @param string $token Token de autorização
