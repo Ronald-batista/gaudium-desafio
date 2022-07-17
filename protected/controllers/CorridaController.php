@@ -71,16 +71,15 @@ class CorridaController extends Controller
 
 		$tarifa = $this->calcTarifa($distancia, $tempo_corrida); //calcula a tarifa
 		$corrida->tarifa = $tarifa;
-		
-		$idMotorista = $this->atribuiMotorista(); 
-		
+
+		$idMotorista = $this->atribuiMotorista();
+
 		//atribui motorista
 		if ($idMotorista != 0) {
 			$corrida->motorista_id = $idMotorista;
 			$motorista = Motorista::model()->findByPk($corrida->motorista_id); // dados do motorista escolhido
 			$quantidadeCorridaDoMotorista = Corrida::model()->count('motorista_id = :motorista_id', array(':motorista_id' => $corrida->motorista_id)); //quantidade de corridas do motorista
 			$corrida->status = 'Em andamento';
-			
 		} else {
 			$corrida->motorista_id = null;
 			$motorista = null;
@@ -118,6 +117,51 @@ class CorridaController extends Controller
 		);
 	}
 
+
+	/**
+	 * Finaliza corrida
+	 */
+	public function actionFinalizaCorrida()
+	{
+		$token = getallheaders()['api-key'];
+		$this->validaToken($token);
+		$data = file_get_contents('php://input');
+		$data = CJSON::decode($data);
+		date_default_timezone_set('America/Sao_Paulo');
+		$this->validaDadosDeEntrada($data);
+		
+		$idCorrida = $data['corrida']['id'];
+		$corrida = Corrida::model()->findByPk($idCorrida);
+		if ($corrida == null) {
+			return $this->ErrorBadRequest('Não foi encontrada a corrida com o id informado.');
+		}
+		
+		$idMotorista = $data['motorista']['id'];
+		if ($corrida->motorista_id !=  $idMotorista) 
+			return $this->ErrorBadRequest('Motorista não corresponde à corrida.');
+
+		if ($corrida->status == 'Em andamento') {
+			$corrida->status = 'Finalizada';
+			$corrida->data_finalizacao = date('d-m-Y H:i', strtotime("now"));
+			$corrida->save();
+			return $this->renderJSON(array('data' => 'Corrida finalizada com sucesso',), 200);
+		}
+		return $this->ErrorBadRequest('Corrida não está em andamento. Ja foi finalizada ou não foi atendida.');
+	}
+
+	/**
+	 * Valida dados de entrada
+	 * @param $data array dados de entrada
+	 */
+	public function validaDadosDeEntrada($data)
+	{
+		if (!isset($data['corrida']['id'])) { // verifica se o id da corrida foi passado
+			return $this->ErrorBadRequest('Não foi informado o id da corrida.');
+		} 
+		if (!isset($data['motorista']['id'])) { // verifica se o id do motorista foi passado
+			return $this->ErrorBadRequest('Não foi informado o id do motorista.');
+		}
+	}
 
 	/**
 	 * Valida se o passageiro existe, está ativo e não possui outra corrida em andamento.
@@ -244,28 +288,6 @@ class CorridaController extends Controller
 	 */
 	public function atribuiMotorista()
 	{
-		// Busca por motorista que nao realizam corrida ainda
-		// $idMotorista = Yii::app()->db->createCommand()
-		// 	->selectDistinct('*')
-		// 	->from('tbl_motorista')
-		// 	->leftjoin('tbl_corrida', 'tbl_motorista.id = tbl_corrida.motorista_id')
-		// 	->queryAll();
-			
-		// for ($i = 0; $i < count($idMotorista); $i++) {
-		// 	if ($idMotorista[$i]['motorista_id'] == null) {
-		// 		$nome_motorista = $idMotorista[$i]['nome'];
-		// 		$placa_motorista = $idMotorista[$i]['placa'];
-				
-		// 		$idMotorista = Yii::app()->db->createCommand()
-		// 			->selectDistinct('id')
-		// 			->from('tbl_motorista')
-		// 			->where('nome = :nome AND placa=:placa', array(':nome' => $nome_motorista, ':placa' => $placa_motorista))
-		// 			->queryRow();
-				
-		// 		return $idMotorista['id'];
-		// 	}
-		// }
-		
 		// Busca por motoristas que ja realizam corrida, mas nao possuem corrida em andamento
 		$MotoristaOcupados = Yii::app()->db->createCommand()
 			->selectDistinct('motorista_id')
@@ -274,28 +296,28 @@ class CorridaController extends Controller
 			->where('tbl_corrida.status = :status', array(':status' => 'Em andamento'))
 			->queryAll();
 
-			for ($i = 0; $i < count($MotoristaOcupados); $i++) {
-				$arrayMotoristaOcupados[] = $MotoristaOcupados[$i]['motorista_id'];
-			}
+		for ($i = 0; $i < count($MotoristaOcupados); $i++) {
+			$arrayMotoristaOcupados[] = $MotoristaOcupados[$i]['motorista_id'];
+		}
 
-			// Pegar todos motorista que possuem status ativo
-			$motoristasStatusAtivo = Yii::app()->db->createCommand()
+		// Pegar todos motorista que possuem status ativo
+		$motoristasStatusAtivo = Yii::app()->db->createCommand()
 			->select('id')
 			->from('tbl_motorista')
 			->where('status = :status', array(':status' => 'A'))
 			->queryAll();
-			for ($i = 0; $i < count($motoristasStatusAtivo); $i++) {
-				$arrayMotoristasStatusAtivo[] = $motoristasStatusAtivo[$i]['id'];
-			}
-	
-			//Quantidade de motoristas
-			$qtdMotoristas = Motorista::model()->count();
-			$rangeMotorista = range(1, $qtdMotoristas);
-			
-			$removidoEmAndamento = array_diff($arrayMotoristaOcupados, $rangeMotorista);
-			$motoristasDisponiveis = array_intersect($arrayMotoristasStatusAtivo , $removidoEmAndamento);
+		for ($i = 0; $i < count($motoristasStatusAtivo); $i++) {
+			$arrayMotoristasStatusAtivo[] = $motoristasStatusAtivo[$i]['id'];
+		}
 
-			return $motoristasDisponiveis == null ? null : $motoristasDisponiveis[0];
+		//Quantidade de motoristas
+		$qtdMotoristas = Motorista::model()->count();
+		$rangeMotorista = range(1, $qtdMotoristas);
+
+		$removidoEmAndamento = array_diff($arrayMotoristaOcupados, $rangeMotorista);
+		$motoristasDisponiveis = array_intersect($arrayMotoristasStatusAtivo, $removidoEmAndamento);
+
+		return $motoristasDisponiveis == null ? null : $motoristasDisponiveis[0];
 	}
 	/**
 	 * Valida o token de API
