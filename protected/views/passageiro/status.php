@@ -15,8 +15,8 @@ $this->menu=array(
 	array('label'=>'Manage Passageiro', 'url'=>array('admin')),
 	array('label'=>'Status Passageiro', 'url'=>array('status', 'id'=>$model->id)),
 );
-?>
+// ?>
 
-<h1>Update Passageiro <?php echo $model->id; ?></h1>
+<h1>Update Status Passageiro <?php  echo $model->id; ?></h1>
 
-<?php $this->renderPartial('_form', array('model'=>$model)); ?>
+<?php $this->renderPartial('_status', array('model'=>$model)); ?>

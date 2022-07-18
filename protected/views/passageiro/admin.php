@@ -57,5 +57,13 @@ or <b>=</b>) at the beginning of each of your search values to specify how the c
 		array(
 			'class'=>'CButtonColumn',
 		),
+		// 'buttons' => array(
+		// 	'update' => array(
+		// 		'label' => 'Status',
+		// 		//'imageUrl' => Yii::app()->request->baseUrl . '/images/status.png',
+		// 		'url' => 'Yii::app()->createUrl("passageiro/status", array("id"=>$data->id))',
+		// 		'options' => array('class' => 'status'),
+		// 	),
+		// )
 	),
 )); ?>

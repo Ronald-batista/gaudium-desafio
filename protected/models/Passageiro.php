@@ -30,13 +30,15 @@ class Passageiro extends CActiveRecord
 		// NOTE: you should only define rules for those attributes that
 		// will receive user inputs.
 		return array(
-			array('nome, email, telefone, status, data', 'required'),
+			array('nome, email, telefone, status, data', 'required', 'on'=>'create'),
 			array('nome, email, telefone', 'length', 'max'=>128),
-			array('nome', 'ext.EWordValidator', 'min'=>2,),
+			array('nome', 'ext.EWordValidator', 'min'=>2, 'on'=>'create'),
 			array('email', 'email'), // validate email format
 			array('status', 'length', 'max'=>1),
 			array('observacao', 'length', 'max'=>200),
 			array ('status', 'in', 'range' => array ('A', 'I'), 'allowEmpty' => false, 'message' => 'O status deve ser A para ativo ou I para inativo'), // validate status
+			// status readonly just for update
+			// array('status', 'readonly', 'on' => 'update'),
 			// The following rule is used by search().
 			// @todo Please remove those attributes that should not be searched.
 			array('id, nome, email, telefone, status, data, observacao', 'safe', 'on'=>'search'),

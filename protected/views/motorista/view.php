@@ -13,6 +13,7 @@ $this->menu=array(
 	array('label'=>'Update Motorista', 'url'=>array('update', 'id'=>$model->id)),
 	array('label'=>'Delete Motorista', 'url'=>'#', 'linkOptions'=>array('submit'=>array('delete','id'=>$model->id),'confirm'=>'Are you sure you want to delete this item?')),
 	array('label'=>'Manage Motorista', 'url'=>array('admin')),
+	array('label' => 'Status Motorista', 'url' => array('status', 'id' => $model->id)),
 );
 ?>
 

@@ -2,7 +2,7 @@
 
 class PassageiroController extends Controller
 {
-
+	
 	/**
 	 * @var string the default layout for the views. Defaults to '//layouts/column2', meaning
 	 * using two-column layout. See 'protected/views/layouts/column2.php'.
@@ -30,7 +30,7 @@ class PassageiroController extends Controller
 		return array(
 			array(
 				'allow',  // allow all users to perform 'index' and 'view' actions
-				'actions' => array('index', 'view'),
+				'actions' => array('index', 'view', 'status'),
 				'users' => array('*'),
 			),
 			array(
@@ -58,6 +58,7 @@ class PassageiroController extends Controller
 	{
 		$this->render('view', array(
 			'model' => $this->loadModel($id),
+			'corridas' => $this->loadCorridas($id),
 		));
 	}
 
@@ -161,6 +162,32 @@ class PassageiroController extends Controller
 		return $model;
 	}
 
+	protected function renderJSON($data, $code_status)
+	{
+		header('Content-type: application/json', true, $code_status);
+		echo CJSON::encode($data);
+
+		foreach (Yii::app()->log->routes as $route) {
+			if ($route instanceof CWebLogRoute) {
+				$route->enabled = false; // disable any weblogroutes
+			}
+		}
+		Yii::app()->end();
+	}
+
+	/**
+	 * Retorna as ultimas 5 corridas do passageiro
+	 * @param integer $id
+	 */
+	public function loadCorridas($id)
+	{
+		$corridas = Corrida::model()->findAllByAttributes(array('passageiro_id' => $id), array('order' => 'id DESC', 'limit' => 5));
+		//$this->renderJSON($corridas, 200);
+		if ($corridas === null)
+			throw new CHttpException(404, 'The requested page does not exist.');
+		return $corridas;
+	}
+
 	/**
 	 * Performs the AJAX validation.
 	 * @param Passageiro $model the model to be validated
@@ -171,5 +198,20 @@ class PassageiroController extends Controller
 			echo CActiveForm::validate($model);
 			Yii::app()->end();
 		}
+	}
+
+	public function actionStatus($id)
+	{
+		$model = $this->loadModel($id);
+
+		if (isset($_POST['Passageiro'])) {
+			$model->attributes = $_POST['Passageiro'];
+			if ($model->save())
+				$this->redirect(array('view', 'id' => $model->id));
+		}
+
+		$this->render('status', array(
+			'model' => $model,
+		));
 	}
 }

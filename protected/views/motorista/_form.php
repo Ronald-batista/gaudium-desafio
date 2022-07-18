@@ -46,8 +46,12 @@
 	</div>
 
 	<div class="row">
-		<?php echo $form->labelEx($model, 'status'); ?>
-		<?php echo $form->textField($model, 'status', array('size' => 1, 'maxlength' => 1)); ?>
+		<?php
+		if ($model->isNewRecord) {
+			echo $form->labelEx($model, 'status');
+			echo $form->dropDownList($model, 'status', array('A' => 'Ativo', 'I' => 'Inativo'));
+		}
+		?>
 		<?php echo $form->error($model, 'status'); ?>
 	</div>
 
@@ -55,7 +59,7 @@
 		<?php echo $form->labelEx($model, 'data ultima modificação'); ?>
 		<?php
 		date_default_timezone_set('America/Sao_Paulo');
-		echo $form->textField($model, 'data', array('value' => date('d/h/Y - g:i a'), 'readonly' => true));
+		echo $form->textField($model, 'data', array('value' => date('d/h/Y - g:i a')));
 		?>
 		<?php echo $form->error($model, 'data'); ?>
 	</div>
@@ -64,17 +68,7 @@
 		<?php echo $form->labelEx($model, 'placa'); ?>
 
 		<?php
-		// $this->widget('CMaskedTextField', array(
-		// 	'model' => $model,
-		// 	'attribute' => 'placa',
-		// 	'mask' => 'AAA-9999',
-		// 	'htmlOptions' => array('size' => 15, 'maxlength' => 8, 'placeholder'=>'AAA-9999',)
-		// )); 
-		// $this->widget("ext.maskedInput.MaskedInput", array(
-		// 	"model" => $model,
-		// 	"attribute" => "placa",
-		// 	"mask" => "AAA9{1}A9{2}",
-		// ));
+
 		$this->widget("ext.maskedInput.MaskedInput", array(
 			"model" => $model,
 			"attribute" => "placa",

@@ -1,6 +1,6 @@
 <?php
-/* @var $this MotoristaController */
-/* @var $model Motorista */
+/* @var $this PassageiroController */
+/* @var $model Passageiro */
 
 $this->breadcrumbs=array(
 	'Motoristas'=>array('index'),
@@ -13,10 +13,9 @@ $this->menu=array(
 	array('label'=>'Create Motorista', 'url'=>array('create')),
 	array('label'=>'View Motorista', 'url'=>array('view', 'id'=>$model->id)),
 	array('label'=>'Manage Motorista', 'url'=>array('admin')),
-	array('label' => 'Status Passageiro', 'url' => array('status', 'id' => $model->id)),
 );
 ?>
 
-<h1>Update Motorista <?php echo $model->id; ?></h1>
+<h1>Update Status Motorista <?php  echo $model->id; ?></h1>
 
-<?php $this->renderPartial('_form', array('model'=>$model)); ?>
+<?php  $this->renderPartial('_status', array('model'=>$model)); ?>

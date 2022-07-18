@@ -28,7 +28,7 @@ class MotoristaController extends Controller
 	{
 		return array(
 			array('allow',  // allow all users to perform 'index' and 'view' actions
-				'actions'=>array('index','view'),
+				'actions'=>array('index','view', 'status'),
 				'users'=>array('*'),
 			),
 			array('allow', // allow authenticated user to perform 'create' and 'update' actions
@@ -169,5 +169,20 @@ class MotoristaController extends Controller
 			echo CActiveForm::validate($model);
 			Yii::app()->end();
 		}
+	}
+
+	public function actionStatus($id)
+	{
+		$model = $this->loadModel($id);
+
+		if (isset($_POST['Motorista'])) {
+			$model->attributes = $_POST['Motorista'];
+			if ($model->save())
+				$this->redirect(array('view', 'id' => $model->id));
+		}
+
+		$this->render('status', array(
+			'model' => $model,
+		));
 	}
 }
